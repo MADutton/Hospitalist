@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Clinical Mastery Lab</title>
+  <style>
+    :root { --bg:#0b1220; --card:#101b33; --muted:#9fb3d1; --text:#eaf1ff; --accent:#58a6ff; --danger:#ff6b6b; --ok:#4cd964; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; }
+    .row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; }
+    .card h2,.card h3 { margin:0 0 10px 0; font-size:18px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:10px 0 6px; }
+    input, select, textarea { width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.14); background:rgba(0,0,0,0.22); color:var(--text); }
+    textarea { min-height: 92px; resize: vertical; }
+    button { padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.14); background:rgba(88,166,255,0.18); color:var(--text); cursor:pointer; }
+    button:hover { border-color: rgba(88,166,255,0.55); }
+    button.danger { background: rgba(255,107,107,0.15); }
+    button.ok { background: rgba(76,217,100,0.15); }
+    .help { color:var(--muted); font-size: 12px; margin-top: 8px; }
+    .pill { display:inline-block; font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); color:var(--muted); }
+    .chat { height: 420px; overflow:auto; padding:10px; background: rgba(0,0,0,0.18); border-radius: 12px; border:1px solid rgba(255,255,255,0.08); }
+    .msg { margin:10px 0; padding:10px; border-radius:12px; line-height:1.35; }
+    .msg.user { background: rgba(88,166,255,0.12); }
+    .msg.ai { background: rgba(255,255,255,0.06); }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .small { font-size: 12px; color: var(--muted); }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <img src="/CEHub-logo.png" alt="CEHub Logo" style="height:50px;" />
+
+  <div>
+    <div style="font-size:20px; font-weight:700;">AI Clinical Mastery Lab</div>
+    <div class="small" id="subheader">
+      Case-based learning loop for veterinary exam preparation.
+    </div>
+  </div>
+</div>
+      <div class="pill" id="authStatus">Not signed in</div>
+    </div>
+
+    <div class="grid2" style="margin-top:14px;">
+      <div class="card">
+        <h2>Sign in</h2>
+
+        <label for="loginEmail">Email</label>
+        <div class="row">
+          <input id="loginEmail" placeholder="you@example.com" style="flex: 1 1 280px;" />
+          <button id="devLoginBtn">Dev Login</button>
+          <button id="logoutBtn" class="danger" style="display:none;">Logout</button>
+        </div>
+
+        <div class="help" id="loginMsg"></div>
+
+        <div style="margin-top:12px;">
+          <h3>Setup</h3>
+
+          <label for="moduleSel">Module</label>
+          <select id="moduleSel"></select>
+
+          <label for="caseSel">Case</label>
+          <select id="caseSel"></select>
+
+          <div class="row" style="margin-top:10px;">
+            <button id="nextBtn" class="ok">Start / Next Case</button>
+            <button id="resetBtn" class="danger">Reset Case</button>
+          </div>
+
+          <div class="help" id="progressMsg"></div>
+          <div class="help" id="remediationMsg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Instructions</h2>
+        <div class="help" id="instructions">
+          Use <b>Start / Next Case</b> to begin. Write your clinical reasoning, then click <b>Send</b>.
+          Use <b>Ask for a hint</b> if you get stuck.
+        </div>
+        <div class="help" style="margin-top:10px;">
+          Tip: Keep answers structured (problem list → differentials → diagnostics → treatment → monitoring).
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Chat</h2>
+      <div class="chat" id="chat"></div>
+
+      <label for="answer">Your response</label>
+      <textarea id="answer" placeholder="Write your reasoning: differentials, pathophys, diagnostics, treatment, prognosis..."></textarea>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="sendBtn" class="ok">Send</button>
+        <button id="hintBtn">Ask for a hint</button>
+        <button id="remediateBtn">Open remediation</button>
+      </div>
+
+      <div class="help mono" id="debug"></div>
+    </div>
+  </div>
+
+<script>
+  // ---------------- UI state ----------------
+  let me = { email: null, role: null };
+  let cases = [];
+  let uiText = {};
+  let masteryRules = {};
+  let current = null;
+  let attemptCount = 0;
+  let awaitingMasteryAnswer = false;
+
+  const els = {
+    authStatus: document.getElementById("authStatus"),
+    loginEmail: document.getElementById("loginEmail"),
+    devLoginBtn: document.getElementById("devLoginBtn"),
+    logoutBtn: document.getElementById("logoutBtn"),
+    loginMsg: document.getElementById("loginMsg"),
+    moduleSel: document.getElementById("moduleSel"),
+    caseSel: document.getElementById("caseSel"),
+    nextBtn: document.getElementById("nextBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    progressMsg: document.getElementById("progressMsg"),
+    remediationMsg: document.getElementById("remediationMsg"),
+    chat: document.getElementById("chat"),
+    answer: document.getElementById("answer"),
+    sendBtn: document.getElementById("sendBtn"),
+    hintBtn: document.getElementById("hintBtn"),
+    remediateBtn: document.getElementById("remediateBtn"),
+    debug: document.getElementById("debug"),
+    subheader: document.getElementById("subheader"),
+    instructions: document.getElementById("instructions"),
+  };
+
+  function setDebug(obj) {
+    els.debug.textContent = JSON.stringify(obj, null, 2);
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // Light formatting for AI: bold "Header:" at line starts.
+  function formatAiText(text) {
+    const safe = escapeHtml(text);
+    const lines = safe.split("\n").map(line => {
+      const m = line.match(/^([A-Za-z][A-Za-z \/\-\(\)]+):\s*(.*)$/);
+      if (m) return `<strong>${m[1]}:</strong> ${m[2]}`;
+      return line;
+    });
+    return lines.join("<br>");
+  }
+
+  function addMsg(text, who) {
+    const div = document.createElement("div");
+    div.className = "msg " + who;
+    if (who === "ai") {
+      div.innerHTML = formatAiText(text);
+    } else {
+      div.textContent = text;
+    }
+    els.chat.appendChild(div);
+    els.chat.scrollTop = els.chat.scrollHeight;
+  }
+
+  function getRuleForModule(mod) {
+    return masteryRules[mod] || {
+      min_attempts: 1,
+      require_confidence: false,
+      final_question_style: "principle_based",
+      allow_transcript: true,
+      allow_online_refs: false
+    };
+  }
+
+  async function refreshMe() {
+    const r = await fetch("/auth/me");
+    const j = await r.json();
+    me = j;
+
+    if (me.email) {
+      els.authStatus.textContent = `Signed in: ${me.email} (${me.role || "learner"})`;
+      els.logoutBtn.style.display = "";
+      els.devLoginBtn.disabled = true;
+      els.loginEmail.disabled = true;
+      els.loginMsg.textContent = "Signed in.";
+    } else {
+      els.authStatus.textContent = "Not signed in";
+      els.logoutBtn.style.display = "none";
+      els.devLoginBtn.disabled = false;
+      els.loginEmail.disabled = false;
+      els.loginMsg.textContent = "Use Dev Login (DEV_LOGIN=true on server).";
+    }
+    return me.email;
+  }
+
+  async function loadConfig() {
+    const [uiR, rulesR] = await Promise.all([
+      fetch("/config/ui_text"),
+      fetch("/config/mastery_rules")
+    ]);
+
+    if (uiR.ok) uiText = await uiR.json();
+    const rules = rulesR.ok ? await rulesR.json() : [];
+    masteryRules = {};
+    for (const r of rules) masteryRules[(r.module || "").toLowerCase()] = r;
+
+    if (uiText.disclaimer) els.subheader.textContent = uiText.disclaimer;
+    if (uiText.instructions_html) els.instructions.innerHTML = uiText.instructions_html;
+    if (uiText.welcome_message) addMsg(uiText.welcome_message, "ai");
+  }
+
+  async function loadCases() {
+    const r = await fetch("/cases.json");
+    if (!r.ok) throw new Error("Unable to load cases (are you signed in?)");
+    cases = await r.json();
+  }
+
+  function modulesFromCases() {
+    // Only modules explicitly present; exclude blanks and "general"
+    const set = new Set();
+    for (const c of cases) {
+      const m = (c.module || "").trim().toLowerCase();
+      if (!m) continue;
+      if (m === "general") continue;
+      set.add(m);
+    }
+    return Array.from(set).sort();
+  }
+
+  function casesForModule(mod) {
+    return cases.filter(c => ((c.module || "").trim().toLowerCase()) === mod.toLowerCase());
+  }
+
+  function populateSelectors() {
+    const mods = modulesFromCases();
+    els.moduleSel.innerHTML = "";
+
+    // If no modules exist, create a single placeholder
+    if (!mods.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "(no modules found)";
+      els.moduleSel.appendChild(opt);
+      els.caseSel.innerHTML = "";
+      return;
+    }
+
+    for (const m of mods) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      els.moduleSel.appendChild(opt);
+    }
+
+    els.moduleSel.addEventListener("change", () => {
+      populateCaseSelector(els.moduleSel.value);
+      setCurrentFromSelection();
+    });
+
+    populateCaseSelector(els.moduleSel.value || mods[0]);
+    setCurrentFromSelection();
+  }
+
+  function populateCaseSelector(mod) {
+    els.caseSel.innerHTML = "";
+    const list = casesForModule(mod);
+
+    for (const c of list) {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.title ? `${c.title} (${c.id})` : c.id;
+      els.caseSel.appendChild(opt);
+    }
+  }
+
+  function setCurrentFromSelection() {
+    const id = els.caseSel.value;
+    current = cases.find(c => c.id === id) || null;
+    attemptCount = 0;
+    awaitingMasteryAnswer = false;
+    els.progressMsg.textContent = "";
+    els.remediationMsg.textContent =
+      current?.remediation_url ? `Remediation: ${current.remediation_url}` : "No remediation URL set.";
+  }
+
+  function setProgressMsg() {
+    const mod = (current?.module || "").trim().toLowerCase();
+    const rule = getRuleForModule(mod);
+    els.progressMsg.textContent =
+      `Attempts: ${attemptCount}. Mastery triggers after ≥ ${rule.min_attempts} attempt(s). ` +
+      (rule.require_confidence ? "Confidence required." : "");
+  }
+
+  async function track(event_type, details = {}) {
+    if (!me.email) return;
+    await fetch("/track", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({
+        module: (current?.module || "").trim().toLowerCase() || null,
+        case_id: current?.id || null,
+        event_type,
+        details,
+        preview: false
+      })
+    });
+  }
+
+  async function startCase() {
+    if (!current) return;
+    els.chat.innerHTML = "";
+    attemptCount = 0;
+    awaitingMasteryAnswer = false;
+
+    addMsg(`CASE: ${current.title || current.id}`, "ai");
+    addMsg(current.vignette || "(No vignette found)", "ai");
+    if (current.remediation_url) addMsg(`Remediation available. Use “Open remediation” if needed.`, "ai");
+
+    await track("case_started", { case_id: current.id });
+    els.answer.value = "";
+    setProgressMsg();
+  }
+
+  function buildTutorPrompt(userText, mode) {
+    const mod = (current?.module || "").trim().toLowerCase();
+    const rule = getRuleForModule(mod);
+
+    const base = [
+      `You are tutoring a veterinarian preparing for specialty-level exam performance.`,
+      `Case vignette: ${current?.vignette || ""}`,
+      `Module: ${mod}`,
+      `Instruction: provide coaching, ask focused questions, and avoid revealing final answers immediately.`,
+      `Remediation URL: ${current?.remediation_url || "none"}`
+    ];
+
+    if (mode === "hint") {
+      base.push(`Task: Provide ONE hint and ONE guiding question. Do not give the full solution.`);
+    } else if (mode === "mastery_question") {
+      base.push(
+        `Task: Ask ONE final mastery-check question (style: ${rule.final_question_style || "principle_based"}).` +
+        ` End your message with exactly: "MASTERY_QUESTION_READY".`
+      );
+    } else if (mode === "mastery_grade") {
+      base.push(
+        `Task: Grade the learner's answer to your mastery question.
+Respond with:
+- If pass: start the message with "MASTERY: PASS"
+- If not pass: start the message with "MASTERY: NOT YET"
+Then give 2-4 bullet points on what was missing/incorrect.`
+      );
+    } else {
+      base.push(`Task: Coach and evaluate their reasoning. Provide corrections and a next-step question.`);
+    }
+
+    return base.join("\n") + "\n\nLearner response:\n" + userText;
+  }
+
+  async function callAI(prompt) {
+    const payload = {
+      model: "gpt-4o-mini",
+      input: prompt,
+      case_id: current?.id || null,
+      module: (current?.module || "").trim().toLowerCase(),
+      transcript_slug: current?.transcript_slug || null
+    };
+
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    // Always read as text first
+    const raw = await r.text();
+
+    // Try JSON parse
+    let j = null;
+    try { j = raw ? JSON.parse(raw) : null; } catch { j = null; }
+
+    const text = (j && typeof j.text === "string") ? j.text.trim() : "";
+    const err  = (j && typeof j.error === "string") ? j.error : "";
+
+    setDebug({
+      status: r.status,
+      payload,
+      meta: j?.meta || null,
+      raw_sample: raw.slice(0, 400),
+    });
+
+    if (!r.ok) {
+      throw new Error(err || raw || "AI error");
+    }
+
+    return text || raw || "";
+  }
+
+  function shouldTriggerMastery() {
+    const mod = (current?.module || "").trim().toLowerCase();
+    const rule = getRuleForModule(mod);
+    return attemptCount >= (rule.min_attempts || 1) && !awaitingMasteryAnswer;
+  }
+
+  // ---------------- Event handlers ----------------
+  els.devLoginBtn.addEventListener("click", async () => {
+    const email = (els.loginEmail.value || "").trim();
+    els.loginMsg.textContent = "Signing in (dev)…";
+    const r = await fetch("/auth/dev-login", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ email })
+    });
+    const raw = await r.text();
+    els.loginMsg.textContent = r.ok ? "Signed in (dev)." : `Dev login failed: ${raw}`;
+    if (r.ok) await boot(true);
+  });
+
+  els.logoutBtn.addEventListener("click", async () => {
+    await fetch("/auth/logout", { method: "POST" });
+    await refreshMe();
+    els.chat.innerHTML = "";
+  });
+
+  els.nextBtn.addEventListener("click", async () => {
+    setCurrentFromSelection();
+    await startCase();
+  });
+
+  els.resetBtn.addEventListener("click", async () => {
+    await startCase();
+  });
+
+  els.remediateBtn.addEventListener("click", () => {
+    if (current?.remediation_url) window.open(current.remediation_url, "_blank");
+    else addMsg("No remediation URL available for this case.", "ai");
+  });
+
+  els.hintBtn.addEventListener("click", async () => {
+    if (!current) return;
+    addMsg("Thinking…", "ai");
+    try {
+      const prompt = buildTutorPrompt("I need a hint.", "hint");
+      const text = await callAI(prompt);
+      // replace last "Thinking…" with actual text (simple approach: add new msg)
+      addMsg(text.replace("MASTERY_QUESTION_READY","").trim(), "ai");
+    } catch (e) {
+      addMsg(`Error: ${e.message || e}`, "ai");
+    }
+  });
+
+  els.sendBtn.addEventListener("click", async () => {
+    if (!current) return;
+    const userText = (els.answer.value || "").trim();
+    if (!userText) return;
+
+    addMsg(userText, "user");
+    await track("attempt_submitted", { len: userText.length });
+
+    attemptCount += 1;
+    setProgressMsg();
+
+    // If awaiting mastery answer, grade it
+    if (awaitingMasteryAnswer) {
+      addMsg("Thinking…", "ai");
+      try {
+        const prompt = buildTutorPrompt(userText, "mastery_grade");
+        const text = await callAI(prompt);
+        addMsg(text, "ai");
+
+        if (text.startsWith("MASTERY: PASS")) {
+          await track("mastery_pass", {});
+          awaitingMasteryAnswer = false;
+          addMsg("Nice. Click Start / Next Case when ready.", "ai");
+        } else if (text.startsWith("MASTERY: NOT YET")) {
+          await track("mastery_not_yet", {});
+          awaitingMasteryAnswer = false;
+          addMsg("Review remediation and try again. I’ll coach you until ready.", "ai");
+        } else {
+          awaitingMasteryAnswer = false;
+          addMsg("I couldn’t grade mastery cleanly—try again or ask for a hint.", "ai");
+        }
+      } catch (e) {
+        awaitingMasteryAnswer = false;
+        addMsg(`Error: ${e.message || e}`, "ai");
+      }
+
+      els.answer.value = "";
+      return;
+    }
+
+    // Normal coaching
+    addMsg("Thinking…", "ai");
+    try {
+      const coachPrompt = buildTutorPrompt(userText, "coach");
+      const coachText = await callAI(coachPrompt);
+      addMsg(coachText, "ai");
+
+      // Trigger mastery question if rule threshold reached
+      if (shouldTriggerMastery()) {
+        const mqPrompt = buildTutorPrompt("Ask the mastery question now.", "mastery_question");
+        const mqText = await callAI(mqPrompt);
+        addMsg(mqText.replace("MASTERY_QUESTION_READY","").trim(), "ai");
+        awaitingMasteryAnswer = true;
+        await track("mastery_question_asked", {});
+      }
+    } catch (e) {
+      addMsg(`Error: ${e.message || e}`, "ai");
+    }
+
+    els.answer.value = "";
+  });
+
+  // Boot
+  async function boot() {
+    const email = await refreshMe();
+    if (!email) {
+      els.chat.innerHTML = "";
+      addMsg("Please sign in to begin (Dev Login).", "ai");
+      return;
+    }
+
+    els.chat.innerHTML = "";
+    await loadConfig();
+    await loadCases();
+    populateSelectors();
+    setCurrentFromSelection();
+
+    addMsg("Welcome. Choose a module and case, then click Start / Next Case.", "ai");
+  }
+
+  (async () => { await boot(); })();
+</script>
+</body>
+</html>
