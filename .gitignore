@@ -1,0 +1,16 @@
+# Node
+node_modules/
+
+# Databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+data/*.sqlite-shm
+data/*.sqlite-wal
+
+
+*.db
+
+# Logs
+npm-debug.log*
