@@ -1,0 +1,34 @@
+:root { --bg:#0b1220; --card:#111a2e; --text:#e9eefc; --muted:#aeb9da; --line:#233052; }
+*{ box-sizing:border-box; }
+body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#070d18,#0b1220); color:var(--text); }
+.container{ max-width:960px; margin:0 auto; padding:24px; }
+.header{ border-bottom:1px solid var(--line); padding:28px 0; background:rgba(17,26,46,.35); }
+h1{ margin:0 0 8px; font-size:28px; }
+h2{ margin:0 0 10px; font-size:22px; }
+h3{ margin:18px 0 8px; }
+h4{ margin:0 0 6px; }
+.sub{ color:var(--muted); margin:0 0 12px; }
+.card{ background:rgba(17,26,46,.7); border:1px solid var(--line); border-radius:16px; padding:18px 18px; margin:18px 0; }
+.pillrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.pill{ border:1px solid var(--line); padding:6px 10px; border-radius:999px; color:var(--muted); font-size:13px; }
+.cta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+.btn{ display:inline-block; background:#2d6bff; color:white; padding:10px 14px; border-radius:12px; text-decoration:none; border:none; cursor:pointer; font-weight:600; }
+.btn.secondary{ background:transparent; border:1px solid #2d6bff; color:#bcd0ff; }
+.note{ border-left:4px solid #2d6bff; padding:10px 12px; background:rgba(45,107,255,.08); border-radius:12px; }
+.quote{ padding:10px 12px; border:1px dashed var(--line); border-radius:12px; color:#d6def7; }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mini{ border:1px solid var(--line); border-radius:14px; padding:12px; background:rgba(7,13,24,.35); }
+.divider{ height:1px; background:var(--line); margin:16px 0; }
+.check{ margin-top:10px; }
+.aml{ display:grid; gap:12px; }
+.q{ border:1px solid var(--line); border-radius:14px; padding:12px; background:rgba(7,13,24,.35); }
+.q p{ margin:0 0 10px; white-space:pre-wrap; }
+.opts{ display:grid; gap:8px; }
+.optbtn{ text-align:left; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:rgba(17,26,46,.6); color:var(--text); cursor:pointer; }
+.optbtn:hover{ border-color:#2d6bff; }
+textarea, input{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:rgba(7,13,24,.5); color:var(--text); }
+textarea{ min-height:120px; resize:vertical; }
+label{ display:block; margin:10px 0; color:#d6def7; }
+.hidden{ display:none; }
+.footer{ padding:8px 0 30px; }
+.rmv-lock{ border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(7,13,24,.35); }
