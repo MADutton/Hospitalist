@@ -28,3 +28,4 @@ data/*.sqlite-*
 
 # Local SQLite artifacts (do not commit)
 ai_lab.sqlite*
+cookies.txt
