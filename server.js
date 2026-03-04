@@ -1,18 +1,20 @@
-// server.js — Render-safe, JSON-safe, auto-fetch CSVs from Google Sheets on startup
+// server.js — Render-safe, JSON-safe, Postgres-backed (no SQLite), auto-fetch CSVs from Google Sheets on startup
 // Node 18+ (ESM). Render start: node server.js
 //
 // REQUIRED ENV (minimum):
 //   AUTH_SECRET=some-long-random-string
 //   BASE_URL=https://YOUR-SERVICE.onrender.com
 //   OPENAI_API_KEY=sk-...
-//
-// RECOMMENDED ENV (Render persistent disk):
-//   DATA_DIR=/var/data        (and mount disk at /var/data)
+//   DATABASE_URL=postgres://...          (Render Postgres connection string)
 //
 // OPTIONAL ENV:
-//   DEV_LOGIN=true           (enables POST /auth/dev-login)
-//   ADMIN_EMAIL=you@domain.com (bypass allowed_users.csv; always role=admin)
+//   DEV_LOGIN=true                       (enables POST /auth/dev-login)
+//   ADMIN_EMAIL=you@domain.com            (bypass allowed_users.csv; always role=admin)
 //   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM (only needed if using magic-link email auth)
+//
+// OPTIONAL ENV (still useful even with Postgres):
+//   DATA_DIR=/var/data                    (for cached CSVs + transcripts; NOT required for DB)
+//   TRANSCRIPTS_DIR=/var/data/transcripts (defaults under DATA_DIR)
 //
 // GOOGLE SHEETS CSV URL ENVS (recommended):
 //   USERS_CSV_URL=...
@@ -26,9 +28,9 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import Database from "better-sqlite3";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
+import pg from "pg";
 
 import { csvToObjects, readCsvFileToObjects, objectsToCsv } from "./csv_tools.js";
 
@@ -43,7 +45,7 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 10000);
 
-// Persistent storage paths
+// Cache/storage paths (NOT database)
 const DATA_DIR = process.env.DATA_DIR || "/var/data";
 
 const CASES_CSV_PATH = process.env.CASES_CSV_PATH || path.join(DATA_DIR, "cases.csv");
@@ -55,19 +57,78 @@ const MODULE_CONTROLS_CSV_PATH =
   process.env.MODULE_CONTROLS_CSV_PATH || path.join(DATA_DIR, "module_controls.csv");
 
 const TRANSCRIPTS_DIR = process.env.TRANSCRIPTS_DIR || path.join(DATA_DIR, "transcripts");
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "ai_lab.sqlite");
 
 // Static root (serve files from /public if present, else repo root)
 const STATIC_ROOT = fs.existsSync(path.join(__dirname, "public"))
   ? path.join(__dirname, "public")
   : __dirname;
 
-// Ensure dirs exist early
+// Ensure dirs exist early (safe even if no disk mounted; will fail gracefully)
 try {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(TRANSCRIPTS_DIR, { recursive: true });
 } catch (e) {
   console.error("BOOT: mkdir failed:", e?.stack || e);
+}
+
+// -------------------- Postgres --------------------
+const { Pool } = pg;
+
+function requireDatabaseUrl() {
+  const u = process.env.DATABASE_URL || "";
+  if (!u) throw new Error("Missing DATABASE_URL env var (Render Postgres).");
+  return u;
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || undefined,
+  // Render Postgres typically requires SSL; this setting works for Render-managed DBs.
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+});
+
+async function initDb() {
+  // events: replaces SQLite events table
+  // rmv_submissions: explicit RMV submissions table (reflection + payload)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS events (
+      id BIGSERIAL PRIMARY KEY,
+      ts BIGINT NOT NULL,
+      email TEXT NOT NULL,
+      module TEXT,
+      case_id TEXT,
+      event_type TEXT NOT NULL,
+      details_json JSONB
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_email_ts ON events (email, ts);
+    CREATE INDEX IF NOT EXISTS idx_events_case ON events (case_id);
+
+    CREATE TABLE IF NOT EXISTS rmv_submissions (
+      id BIGSERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      email TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      mastery BOOLEAN NOT NULL DEFAULT FALSE,
+      reflection TEXT NOT NULL,
+      aml_payload JSONB
+    );
+    CREATE INDEX IF NOT EXISTS idx_rmv_email_created ON rmv_submissions (email, created_at);
+    CREATE INDEX IF NOT EXISTS idx_rmv_module_created ON rmv_submissions (module_id, created_at);
+  `);
+}
+
+async function trackEvent({ email, module, case_id, event_type, details }) {
+  await pool.query(
+    `INSERT INTO events (ts, email, module, case_id, event_type, details_json)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      Date.now(),
+      email,
+      module || null,
+      case_id || null,
+      event_type,
+      details ?? null,
+    ]
+  );
 }
 
 // -------------------- Small helpers --------------------
@@ -485,41 +546,6 @@ function loadOnlineRefsForModule(module) {
   );
 }
 
-// -------------------- Tracking DB (SQLite) --------------------
-const db = new Database(DB_PATH);
-db.pragma("journal_mode = WAL");
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts INTEGER NOT NULL,
-  email TEXT NOT NULL,
-  module TEXT,
-  case_id TEXT,
-  event_type TEXT NOT NULL,
-  details_json TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_events_email_ts ON events(email, ts);
-CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
-`);
-
-const insertEvent = db.prepare(`
-  INSERT INTO events (ts, email, module, case_id, event_type, details_json)
-  VALUES (@ts, @email, @module, @case_id, @event_type, @details_json)
-`);
-
-function trackEvent({ email, module, case_id, event_type, details }) {
-  insertEvent.run({
-    ts: Date.now(),
-    email,
-    module: module || null,
-    case_id: case_id || null,
-    event_type,
-    details_json: details ? JSON.stringify(details) : null,
-  });
-}
-
 // -------------------- OpenAI wrapper --------------------
 function extractTextFromResponsesAPI(data) {
   try {
@@ -551,7 +577,6 @@ If asked for exact drug dosages not present in provided course materials, say it
 If COURSE MATERIAL is provided, prioritize it as the source of truth.`
   );
 
-  // Keep transcript bounded for speed (optional)
   const MAX_TRANSCRIPT_CHARS = Number(process.env.MAX_TRANSCRIPT_CHARS || "8000");
 
   if (transcriptText) {
@@ -637,7 +662,6 @@ async function handleAuthRequest(req, res) {
       text: `Click to sign in (expires in 15 minutes):\n\n${link}\n\nIf you did not request this, ignore.`,
     });
   } catch (e) {
-    // Always JSON for the browser
     return apiError(res, 500, "Email sign-in is not configured.", e?.message || String(e));
   }
 
@@ -714,7 +738,7 @@ async function handleTrack(req, res) {
   if (preview === true) return json(res, 200, { ok: true, skipped: "preview" });
   if (!event_type) return apiError(res, 400, "Missing event_type");
 
-  trackEvent({
+  await trackEvent({
     email,
     module: (module || "").toLowerCase() || null,
     case_id: case_id || null,
@@ -725,11 +749,57 @@ async function handleTrack(req, res) {
   return json(res, 200, { ok: true });
 }
 
+// NEW: RMV submission endpoint (for your Week 1 module)
+async function handleRmvSubmit(req, res) {
+  const email = requireAuth(req, res);
+  if (!email) return;
+
+  const raw = await readBody(req, 2_000_000);
+  let parsed = {};
+  try { parsed = JSON.parse(raw || "{}"); } catch {}
+
+  const module_id = String(parsed.module_id || "").trim();
+  const reflection = String(parsed.reflection || "").trim();
+  const masteryRaw = parsed.mastery;
+  const mastery =
+    masteryRaw === true ||
+    masteryRaw === "true" ||
+    masteryRaw === 1 ||
+    masteryRaw === "1";
+
+  let aml_payload = parsed.aml_payload ?? null;
+  // If client sent aml_payload as a JSON string, parse it
+  if (typeof aml_payload === "string") {
+    try { aml_payload = JSON.parse(aml_payload); } catch { /* keep as string */ }
+  }
+
+  if (!module_id) return apiError(res, 400, "Missing module_id");
+  if (!reflection) return apiError(res, 400, "Missing reflection");
+
+  // Store in rmv_submissions table
+  await pool.query(
+    `INSERT INTO rmv_submissions (email, module_id, mastery, reflection, aml_payload)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [email, module_id, mastery, reflection, aml_payload]
+  );
+
+  // Also track an event for unified reporting
+  await trackEvent({
+    email,
+    module: module_id.toLowerCase(),
+    case_id: null,
+    event_type: "rmv_submitted",
+    details: { mastery, reflection_len: reflection.length },
+  });
+
+  return json(res, 200, { ok: true });
+}
+
 async function handleExportUsersSummary(req, res) {
   const admin = requireFaculty(req, res);
   if (!admin) return;
 
-  const q = db.prepare(`
+  const { rows } = await pool.query(`
     SELECT email,
            MAX(ts) as last_active,
            SUM(CASE WHEN event_type='attempt_submitted' THEN 1 ELSE 0 END) as attempts,
@@ -738,18 +808,21 @@ async function handleExportUsersSummary(req, res) {
     GROUP BY email
   `);
 
-  const rows = q.all().map((r) => {
-    const mastery_rate = r.attempts > 0 ? r.mastered / r.attempts : 0;
+  const out = rows.map((r) => {
+    const attempts = Number(r.attempts || 0);
+    const mastered = Number(r.mastered || 0);
+    const mastery_rate = attempts > 0 ? mastered / attempts : 0;
+    const lastActiveMs = r.last_active ? Number(r.last_active) : null;
     return {
       email: r.email,
-      attempts: r.attempts,
-      mastered: r.mastered,
+      attempts,
+      mastered,
       mastery_rate: (mastery_rate * 100).toFixed(1) + "%",
-      last_active: r.last_active ? new Date(r.last_active).toISOString() : "",
+      last_active: lastActiveMs ? new Date(lastActiveMs).toISOString() : "",
     };
   });
 
-  const csv = objectsToCsv(rows, ["email", "attempts", "mastered", "mastery_rate", "last_active"]);
+  const csv = objectsToCsv(out, ["email", "attempts", "mastered", "mastery_rate", "last_active"]);
   res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8" });
   res.end(csv);
 }
@@ -758,7 +831,7 @@ async function handleExportCaseDetail(req, res) {
   const admin = requireFaculty(req, res);
   if (!admin) return;
 
-  const q = db.prepare(`
+  const { rows } = await pool.query(`
     SELECT email, case_id,
            SUM(CASE WHEN event_type='attempt_submitted' THEN 1 ELSE 0 END) as attempts,
            SUM(CASE WHEN event_type='mastery_pass' THEN 1 ELSE 0 END) as mastery_passes,
@@ -769,16 +842,41 @@ async function handleExportCaseDetail(req, res) {
     GROUP BY email, case_id
   `);
 
-  const rows = q.all().map((r) => ({
+  const out = rows.map((r) => ({
     email: r.email,
     case_id: r.case_id,
-    attempts: r.attempts,
-    mastered: r.mastery_passes > 0 ? "yes" : "no",
-    first_seen: r.first_seen ? new Date(r.first_seen).toISOString() : "",
-    last_seen: r.last_seen ? new Date(r.last_seen).toISOString() : "",
+    attempts: Number(r.attempts || 0),
+    mastered: Number(r.mastery_passes || 0) > 0 ? "yes" : "no",
+    first_seen: r.first_seen ? new Date(Number(r.first_seen)).toISOString() : "",
+    last_seen: r.last_seen ? new Date(Number(r.last_seen)).toISOString() : "",
   }));
 
-  const csv = objectsToCsv(rows, ["email", "case_id", "attempts", "mastered", "first_seen", "last_seen"]);
+  const csv = objectsToCsv(out, ["email", "case_id", "attempts", "mastered", "first_seen", "last_seen"]);
+  res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8" });
+  res.end(csv);
+}
+
+// Optional: export RMV submissions as CSV (faculty only)
+async function handleExportRmv(req, res) {
+  const admin = requireFaculty(req, res);
+  if (!admin) return;
+
+  const { rows } = await pool.query(`
+    SELECT created_at, email, module_id, mastery, reflection
+    FROM rmv_submissions
+    ORDER BY created_at DESC
+    LIMIT 5000
+  `);
+
+  const out = rows.map((r) => ({
+    created_at: r.created_at ? new Date(r.created_at).toISOString() : "",
+    email: r.email,
+    module_id: r.module_id,
+    mastery: r.mastery ? "true" : "false",
+    reflection: r.reflection,
+  }));
+
+  const csv = objectsToCsv(out, ["created_at", "email", "module_id", "mastery", "reflection"]);
   res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8" });
   res.end(csv);
 }
@@ -809,8 +907,7 @@ async function handleChat(req, res) {
     }
   }
 
-  // Track the call (always)
-  trackEvent({
+  await trackEvent({
     email,
     module: mod || null,
     case_id: case_id || null,
@@ -821,7 +918,6 @@ async function handleChat(req, res) {
   try {
     const upstream = await callOpenAI({ model, input, transcriptText, onlineRefsText });
 
-    // Always return JSON (browser-safe)
     if (upstream.status < 200 || upstream.status >= 300) {
       return apiError(res, 502, "Upstream model error", upstream.data?.error || upstream.data);
     }
@@ -893,9 +989,13 @@ const server = http.createServer(async (req, res) => {
     // Tracking
     if (req.method === "POST" && pathname === "/track") return await handleTrack(req, res);
 
+    // RMV submit (NEW)
+    if (req.method === "POST" && pathname === "/api/rmv/submit") return await handleRmvSubmit(req, res);
+
     // Exports (faculty only)
     if (req.method === "GET" && pathname === "/admin/export/users_summary.csv") return await handleExportUsersSummary(req, res);
     if (req.method === "GET" && pathname === "/admin/export/case_detail.csv") return await handleExportCaseDetail(req, res);
+    if (req.method === "GET" && pathname === "/admin/export/rmv.csv") return await handleExportRmv(req, res);
 
     // Admin refresh (faculty only)
     if (req.method === "POST" && pathname === "/admin/refresh-config") return await handleAdminRefreshConfig(req, res);
@@ -906,7 +1006,6 @@ const server = http.createServer(async (req, res) => {
     // Static last
     return serveStatic(req, res);
   } catch (e) {
-    // Always respond (never throw)
     return apiError(res, 500, e?.message || String(e));
   }
 });
@@ -918,9 +1017,15 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log("Data dir:", DATA_DIR);
 });
 
-// -------------------- POST-LISTEN BOOT: fetch Google CSVs + load caches --------------------
+// -------------------- POST-LISTEN BOOT: init DB + fetch Google CSVs + load caches --------------------
 (async () => {
   try {
+    // Ensure DATABASE_URL is present (fail early with clear error)
+    requireDatabaseUrl();
+
+    await initDb();
+    console.log("BOOT: Postgres initDb complete");
+
     const results = await refreshAllCsvFromEnv();
     console.log("BOOT: CSV refresh results:", results);
 
@@ -928,7 +1033,7 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log("BOOT: startupLoad complete");
   } catch (e) {
     console.error("POST-LISTEN BOOT ERROR:", e?.stack || e);
-    // Still keep server running; app can use disk bootstrapped CSVs if present
+    // Keep server running; app can use disk-bootstrapped CSVs if present
     try { startupLoad(); } catch {}
   }
 })();
