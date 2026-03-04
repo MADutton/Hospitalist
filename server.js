@@ -1,5 +1,6 @@
+cat > server.js << 'EOF'
 // server.js — Render-safe, JSON-safe, Postgres-backed (no SQLite), auto-fetch CSVs from Google Sheets on startup
-// Node 18+ (ESM). Render start: node server.js
+// Node 20.x (ESM). Render start: node server.js
 //
 // REQUIRED ENV (minimum):
 //   AUTH_SECRET=some-long-random-string
@@ -87,8 +88,6 @@ const pool = new Pool({
 });
 
 async function initDb() {
-  // events: replaces SQLite events table
-  // rmv_submissions: explicit RMV submissions table (reflection + payload)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS events (
       id BIGSERIAL PRIMARY KEY,
@@ -260,7 +259,6 @@ async function fetchCsvToPath(url, outPath) {
     return { ok: false, status: resp.status, sample: body.slice(0, 200) };
   }
 
-  // Basic sanity check: should look like CSV with at least one comma or newline
   const looksLikeCsv = body.includes("\n") || body.includes(",");
   if (!looksLikeCsv) {
     return { ok: false, status: 200, sample: body.slice(0, 200), reason: "Does not look like CSV" };
@@ -749,7 +747,7 @@ async function handleTrack(req, res) {
   return json(res, 200, { ok: true });
 }
 
-// NEW: RMV submission endpoint (for your Week 1 module)
+// NEW: RMV submission endpoint (for Week modules)
 async function handleRmvSubmit(req, res) {
   const email = requireAuth(req, res);
   if (!email) return;
@@ -768,7 +766,6 @@ async function handleRmvSubmit(req, res) {
     masteryRaw === "1";
 
   let aml_payload = parsed.aml_payload ?? null;
-  // If client sent aml_payload as a JSON string, parse it
   if (typeof aml_payload === "string") {
     try { aml_payload = JSON.parse(aml_payload); } catch { /* keep as string */ }
   }
@@ -776,14 +773,12 @@ async function handleRmvSubmit(req, res) {
   if (!module_id) return apiError(res, 400, "Missing module_id");
   if (!reflection) return apiError(res, 400, "Missing reflection");
 
-  // Store in rmv_submissions table
   await pool.query(
     `INSERT INTO rmv_submissions (email, module_id, mastery, reflection, aml_payload)
      VALUES ($1, $2, $3, $4, $5)`,
     [email, module_id, mastery, reflection, aml_payload]
   );
 
-  // Also track an event for unified reporting
   await trackEvent({
     email,
     module: module_id.toLowerCase(),
@@ -856,7 +851,6 @@ async function handleExportCaseDetail(req, res) {
   res.end(csv);
 }
 
-// Optional: export RMV submissions as CSV (faculty only)
 async function handleExportRmv(req, res) {
   const admin = requireFaculty(req, res);
   if (!admin) return;
@@ -936,7 +930,6 @@ async function handleChat(req, res) {
   }
 }
 
-// Optional: force-refresh Google Sheets CSVs (admin-only) without UI
 async function handleAdminRefreshConfig(req, res) {
   const admin = requireFaculty(req, res);
   if (!admin) return;
@@ -968,7 +961,6 @@ const server = http.createServer(async (req, res) => {
     const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const pathname = urlObj.pathname;
 
-    // Health first
     if (req.method === "GET" && pathname === "/health") return await handleHealth(req, res);
 
     // Auth
@@ -1020,9 +1012,7 @@ server.listen(PORT, "0.0.0.0", () => {
 // -------------------- POST-LISTEN BOOT: init DB + fetch Google CSVs + load caches --------------------
 (async () => {
   try {
-    // Ensure DATABASE_URL is present (fail early with clear error)
     requireDatabaseUrl();
-
     await initDb();
     console.log("BOOT: Postgres initDb complete");
 
@@ -1033,7 +1023,7 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log("BOOT: startupLoad complete");
   } catch (e) {
     console.error("POST-LISTEN BOOT ERROR:", e?.stack || e);
-    // Keep server running; app can use disk-bootstrapped CSVs if present
     try { startupLoad(); } catch {}
   }
 })();
+EOF
