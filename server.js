@@ -1,4 +1,3 @@
-cat > server.js << 'EOF'
 // server.js — Render-safe, JSON-safe, Postgres-backed (no SQLite), auto-fetch CSVs from Google Sheets on startup
 // Node 20.x (ESM). Render start: node server.js
 //
