@@ -25,3 +25,6 @@ logs/
 # Local databases
 data/*.sqlite
 data/*.sqlite-*
+
+# Local SQLite artifacts (do not commit)
+ai_lab.sqlite*
