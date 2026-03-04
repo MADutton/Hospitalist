@@ -1,90 +1,299 @@
 <!doctype html>
 <html lang="en">
+
 <head>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ABVP Hospitalist Fellowship</title>
+
+<title>Week 1 — Hospitalist Identity & Scope</title>
+
+<link rel="stylesheet" href="./styles.css">
 
 <style>
+
 body{
-  font-family: system-ui, -apple-system, Arial, sans-serif;
-  margin:40px;
-  background:#f7f7f7;
+font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+margin:40px;
+background:#f6f6f6;
+line-height:1.6;
 }
 
 .container{
-  max-width:900px;
-  margin:auto;
-  background:white;
-  padding:40px;
-  border-radius:10px;
-  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+max-width:900px;
+margin:auto;
+background:white;
+padding:40px;
+border-radius:10px;
+box-shadow:0 2px 12px rgba(0,0,0,0.08);
 }
 
 h1{
-  margin-top:0;
+margin-top:0;
 }
 
-.module{
-  margin-top:20px;
-  padding:20px;
-  border:1px solid #ddd;
-  border-radius:8px;
+button,a.button{
+display:inline-block;
+margin-top:10px;
+padding:10px 16px;
+border-radius:6px;
+border:none;
+background:#1e6bd6;
+color:white;
+text-decoration:none;
+cursor:pointer;
 }
 
-a.button{
-  display:inline-block;
-  margin-top:10px;
-  padding:10px 16px;
-  background:#1e6bd6;
-  color:white;
-  text-decoration:none;
-  border-radius:6px;
+button:hover,a.button:hover{
+background:#144fa0;
 }
 
-a.button:hover{
-  background:#154fa6;
+.section{
+margin-top:35px;
+}
+
+video{
+margin-top:10px;
+border-radius:10px;
+width:100%;
+}
+
+textarea{
+width:100%;
+height:140px;
+margin-top:10px;
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+font-family:inherit;
+}
+
+input{
+padding:10px;
+width:100%;
+margin-top:10px;
+border-radius:6px;
+border:1px solid #ccc;
 }
 
 .footer{
-  margin-top:30px;
-  font-size:14px;
-  color:#777;
+margin-top:40px;
+font-size:14px;
+color:#666;
 }
+
+.muted{
+color:#777;
+}
+
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>ABVP Hospitalist Fellowship</h1>
+<h1>Week 1 — Hospitalist Identity & Scope</h1>
 
-<p>
-Prototype educational platform for ABVP Diplomates exploring a veterinary
-hospitalist training pathway.
+<p class="muted">
+For DABVP-CF and DABVP-Feline • 20-minute micro-module • Alpha Hybrid: MP4 lesson + AML + RMV
 </p>
 
-<div class="module">
 
-<h2>Week 1 — Hospitalist Identity & Scope</h2>
+<div class="section">
 
-<p>
-20-minute micro-module introducing the hospitalist model in veterinary
-medicine: inpatient ownership, monitoring frameworks, and escalation triggers.
-</p>
+<a class="button" href="./proceedings.html">Open Proceedings</a>
 
-<a class="button" href="/modules/hospitalist_week01/">
-Open Week 1 Module
-</a>
+<a class="button" href="#" onclick="startAML()">Go to AML Case</a>
 
 </div>
+
+
+<div class="section">
+
+<h2>Lesson (12–15 min)</h2>
+
+<video controls preload="metadata">
+
+<source src="/videos/hospitalist_week01_intro.mp4" type="video/mp4">
+
+Your browser does not support the video tag.
+
+</video>
+
+</div>
+
+
+<div class="section">
+
+<h2>Key Concepts</h2>
+
+<h3>1) What is a veterinary hospitalist?</h3>
+
+<p>
+Hospitalists own longitudinal inpatient care over hours to days. Their role is distinct from emergency triage and from intensive care specialists managing ventilators or vasopressors.
+</p>
+
+<ul>
+
+<li>Own inpatient reassessment and monitoring</li>
+
+<li>Recognize deterioration early</li>
+
+<li>Coordinate ER → ward → discharge transitions</li>
+
+<li>Optimize inpatient medical management</li>
+
+</ul>
+
+
+<h3>2) Scope boundaries</h3>
+
+<p>Included responsibilities:</p>
+
+<ul>
+
+<li>Ward-level oxygen, fluids, electrolytes</li>
+
+<li>Antimicrobial stewardship</li>
+
+<li>Monitoring plans and deterioration thresholds</li>
+
+<li>Step-down planning and discharge readiness</li>
+
+</ul>
+
+<p>Excluded responsibilities:</p>
+
+<ul>
+
+<li>Primary ER triage ownership</li>
+
+<li>Primary ICU ventilator management</li>
+
+</ul>
+
+
+<h3>3) Time-horizon model</h3>
+
+<ul>
+
+<li><strong>Emergency medicine</strong>: minutes → hours</li>
+
+<li><strong>Hospitalist medicine</strong>: hours → days</li>
+
+</ul>
+
+
+<h3>4) Mastery for Week 1</h3>
+
+<ul>
+
+<li>Create a prioritized inpatient problem list</li>
+
+<li>Define deterioration triggers</li>
+
+<li>Design a monitoring plan</li>
+
+<li>Recognize when escalation is required</li>
+
+</ul>
+
+</div>
+
+
+<div class="section">
+
+<h2>AML Mini-Case</h2>
+
+<p>
+Three short clinical decisions with reasoning prompts. Completion unlocks RMV submission.
+</p>
+
+<button onclick="startAML()">Start AML Case</button>
+
+</div>
+
+
+<div class="section">
+
+<h2>RMV Submission</h2>
+
+<p class="muted">
+Unlocked after AML mastery.
+</p>
+
+<label>Your email</label>
+
+<input id="email" placeholder="you@example.com">
+
+<label>Reflection (150–300 words recommended)</label>
+
+<textarea id="reflection"></textarea>
+
+<br><br>
+
+<button onclick="submitRMV()">Submit RMV</button>
+
+</div>
+
 
 <div class="footer">
-Prototype training platform • ABVP Fellowship Concept
+
+Prototype module for testing Render RMV workflow.  
+Educational simulation only.
+
 </div>
 
 </div>
+
+
+<script src="./aml.js"></script>
+
+
+<script>
+
+async function submitRMV(){
+
+const email=document.getElementById("email").value
+
+const reflection=document.getElementById("reflection").value
+
+const res=await fetch("/api/rmv/submit",{
+
+method:"POST",
+
+headers:{"Content-Type":"application/json"},
+
+body:JSON.stringify({
+
+module:"hospitalist_week01",
+
+email:email,
+
+reflection:reflection
+
+})
+
+})
+
+const data=await res.json()
+
+if(data.ok){
+
+alert("RMV submitted successfully")
+
+}else{
+
+alert("Submission failed")
+
+}
+
+}
+
+</script>
 
 </body>
+
 </html>
