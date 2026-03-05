@@ -1,319 +1,50 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Week 1 — Hospitalist Identity & Scope</title>
-
-<link rel="stylesheet" href="./styles.css">
-
-<style>
-
-body{
-font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-margin:40px;
-background:#f6f6f6;
-line-height:1.6;
-}
-
-.container{
-max-width:900px;
-margin:auto;
-background:white;
-padding:40px;
-border-radius:10px;
-box-shadow:0 2px 12px rgba(0,0,0,0.08);
-}
-
-h1{
-margin-top:0;
-}
-
-button,a.button{
-display:inline-block;
-margin-top:10px;
-padding:10px 16px;
-border-radius:6px;
-border:none;
-background:#1e6bd6;
-color:white;
-text-decoration:none;
-cursor:pointer;
-}
-
-button:hover,a.button:hover{
-background:#144fa0;
-}
-
-.section{
-margin-top:35px;
-}
-
-video{
-margin-top:10px;
-border-radius:10px;
-width:100%;
-}
-
-textarea{
-width:100%;
-height:140px;
-margin-top:10px;
-padding:10px;
-border-radius:6px;
-border:1px solid #ccc;
-font-family:inherit;
-}
-
-input{
-padding:10px;
-width:100%;
-margin-top:10px;
-border-radius:6px;
-border:1px solid #ccc;
-}
-
-.footer{
-margin-top:40px;
-font-size:14px;
-color:#666;
-}
-
-.muted{
-color:#777;
-}
-
-</style>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Week 1 — Hospitalist Identity & Scope</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
-
 <body>
+  <main class="container">
+    <h1>Week 1 — Hospitalist Identity & Scope</h1>
 
-<div class="container">
+    <p class="muted">
+      For DABVP-CF and DABVP-Feline • 20-minute micro-module • Alpha Hybrid: MP4 lesson + AML + RMV
+    </p>
 
-<h1>Week 1 — Hospitalist Identity & Scope</h1>
+    <div class="row">
+      <a class="button" href="./proceedings.html" target="_blank" rel="noopener">Open Proceedings</a>
+      <button class="button" id="start-aml" type="button">Start AML Case</button>
+    </div>
 
-<p class="muted">
-For DABVP-CF and DABVP-Feline • 20-minute micro-module • Alpha Hybrid: MP4 lesson + AML + RMV
-</p>
+    <div id="status" class="status muted"></div>
 
+    <section id="aml-root" class="card" style="display:none; margin-top:16px;"></section>
 
-<div class="section">
+    <hr style="margin:24px 0;" />
 
-<a class="button" href="./proceedings.html">Open Proceedings</a>
-<div class="section">
-  <h2>Proceedings (PDF)</h2>
+    <h2>RMV Submission</h2>
+    <p class="muted">Unlocked after AML mastery (prototype behavior may vary).</p>
 
-  <p class="muted">
-    View in-browser or download for offline reading:
-    <a href="/proceedings/week01_hospitalist_identity_scope.pdf" target="_blank" rel="noopener">
-      Download PDF
-    </a>
-  </p>
+    <form id="rmv-form" class="card">
+      <label>Your email</label>
+      <input id="rmv-email" type="email" placeholder="you@example.com" />
 
-  <iframe
-    src="/proceedings/week01_hospitalist_identity_scope.pdf#view=FitH"
-    style="width:100%; height:800px; border:1px solid #ddd; border-radius:10px;"
-    loading="lazy"
-    title="Week 1 Proceedings PDF">
-  </iframe>
+      <label style="margin-top:12px;">Reflection (150–300 words recommended)</label>
+      <textarea id="rmv-reflection" rows="6" placeholder="What changed your thinking? What deterioration trigger will you use next week?"></textarea>
 
-  <p class="muted" style="margin-top:10px;">
-    If the PDF doesn’t display (some browsers block embedded PDFs), use the download link above.
-  </p>
-</div>
-<a class="button" href="#" onclick="startAML()">Go to AML Case</a>
+      <button class="button" id="rmv-submit" type="submit" style="margin-top:12px;">Submit RMV</button>
+      <div id="rmv-status" class="status muted" style="margin-top:10px;"></div>
+    </form>
 
-</div>
+    <p class="muted" style="margin-top:16px;">
+      Prototype module for testing Render RMV workflow. Educational simulation only.
+    </p>
+  </main>
 
-
-<div class="section">
-
-<h2>Lesson (12–15 min)</h2>
-
-<video controls preload="metadata">
-
-<source src="/videos/hospitalist_week01_intro.mp4" type="video/mp4">
-
-Your browser does not support the video tag.
-
-</video>
-
-</div>
-
-
-<div class="section">
-
-<h2>Key Concepts</h2>
-
-<h3>1) What is a veterinary hospitalist?</h3>
-
-<p>
-Hospitalists own longitudinal inpatient care over hours to days. Their role is distinct from emergency triage and from intensive care specialists managing ventilators or vasopressors.
-</p>
-
-<ul>
-
-<li>Own inpatient reassessment and monitoring</li>
-
-<li>Recognize deterioration early</li>
-
-<li>Coordinate ER → ward → discharge transitions</li>
-
-<li>Optimize inpatient medical management</li>
-
-</ul>
-
-
-<h3>2) Scope boundaries</h3>
-
-<p>Included responsibilities:</p>
-
-<ul>
-
-<li>Ward-level oxygen, fluids, electrolytes</li>
-
-<li>Antimicrobial stewardship</li>
-
-<li>Monitoring plans and deterioration thresholds</li>
-
-<li>Step-down planning and discharge readiness</li>
-
-</ul>
-
-<p>Excluded responsibilities:</p>
-
-<ul>
-
-<li>Primary ER triage ownership</li>
-
-<li>Primary ICU ventilator management</li>
-
-</ul>
-
-
-<h3>3) Time-horizon model</h3>
-
-<ul>
-
-<li><strong>Emergency medicine</strong>: minutes → hours</li>
-
-<li><strong>Hospitalist medicine</strong>: hours → days</li>
-
-</ul>
-
-
-<h3>4) Mastery for Week 1</h3>
-
-<ul>
-
-<li>Create a prioritized inpatient problem list</li>
-
-<li>Define deterioration triggers</li>
-
-<li>Design a monitoring plan</li>
-
-<li>Recognize when escalation is required</li>
-
-</ul>
-
-</div>
-
-
-<div class="section">
-
-<h2>AML Mini-Case</h2>
-
-<p>
-Three short clinical decisions with reasoning prompts. Completion unlocks RMV submission.
-</p>
-
-<button onclick="startAML()">Start AML Case</button>
-
-</div>
-
-
-<div class="section">
-
-<h2>RMV Submission</h2>
-
-<p class="muted">
-Unlocked after AML mastery.
-</p>
-
-<label>Your email</label>
-
-<input id="email" placeholder="you@example.com">
-
-<label>Reflection (150–300 words recommended)</label>
-
-<textarea id="reflection"></textarea>
-
-<br><br>
-
-<button onclick="submitRMV()">Submit RMV</button>
-
-</div>
-
-
-<div class="footer">
-
-Prototype module for testing Render RMV workflow.  
-Educational simulation only.
-
-</div>
-
-</div>
-
-
-<script src="./aml.js"></script>
-
-
-<script>
-
-async function submitRMV(){
-
-const email=document.getElementById("email").value
-
-const reflection=document.getElementById("reflection").value
-
-const res=await fetch("/api/rmv/submit",{
-
-method:"POST",
-
-headers:{"Content-Type":"application/json"},
-
-body:JSON.stringify({
-
-module:"hospitalist_week01",
-
-email:email,
-
-reflection:reflection
-
-})
-
-})
-
-const data=await res.json()
-
-if(data.ok){
-
-alert("RMV submitted successfully")
-
-}else{
-
-alert("Submission failed")
-
-}
-
-}
-
-</script>
-
+  <!-- Load script at the END so DOM exists -->
+  <script src="./aml.js"></script>
 </body>
-
 </html>
