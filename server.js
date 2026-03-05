@@ -762,8 +762,7 @@ async function handleConfigModuleControls(req, res) {
 }
 
 async function handleCases(req, res) {
-  const email = requireAuth(req, res);
-  if (!email) return;
+  // Prototype: allow public access to cases
   return json(res, 200, casesCache);
 }
 
@@ -1067,3 +1066,4 @@ server.listen(PORT, "0.0.0.0", () => {
     } catch {}
   }
 })();
+
