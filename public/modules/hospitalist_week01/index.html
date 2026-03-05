@@ -1,138 +1,299 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ABVP Hospitalist Fellowship — Week 1 (Mockup)</title>
-  <link rel="stylesheet" href="./styles.css" />
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Week 1 — Hospitalist Identity & Scope</title>
+
+<link rel="stylesheet" href="./styles.css">
+
+<style>
+
+body{
+font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+margin:40px;
+background:#f6f6f6;
+line-height:1.6;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+background:white;
+padding:40px;
+border-radius:10px;
+box-shadow:0 2px 12px rgba(0,0,0,0.08);
+}
+
+h1{
+margin-top:0;
+}
+
+button,a.button{
+display:inline-block;
+margin-top:10px;
+padding:10px 16px;
+border-radius:6px;
+border:none;
+background:#1e6bd6;
+color:white;
+text-decoration:none;
+cursor:pointer;
+}
+
+button:hover,a.button:hover{
+background:#144fa0;
+}
+
+.section{
+margin-top:35px;
+}
+
+video{
+margin-top:10px;
+border-radius:10px;
+width:100%;
+}
+
+textarea{
+width:100%;
+height:140px;
+margin-top:10px;
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+font-family:inherit;
+}
+
+input{
+padding:10px;
+width:100%;
+margin-top:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+.footer{
+margin-top:40px;
+font-size:14px;
+color:#666;
+}
+
+.muted{
+color:#777;
+}
+
+</style>
+
 </head>
+
 <body>
-  <header class="header">
-    <div class="container">
-      <h1>Week 1 — Hospitalist Identity & Scope (Mockup)</h1>
-      <p class="sub">
-        For DABVP-CF and DABVP-Feline • 20-minute micro-module • MP4-style web lesson + AML + RMV
-      </p>
 
-      <div class="pillrow">
-        <span class="pill">Web lesson</span>
-        <span class="pill">AML mini-case</span>
-        <span class="pill">RMV submission</span>
-      </div>
+<div class="container">
 
-      <div class="cta-row">
-        <a class="btn" href="#lesson">Start Lesson</a>
-        <a class="btn secondary" href="./proceedings.html" target="_blank" rel="noopener">Open Proceedings</a>
-        <a class="btn secondary" href="#aml">Go to AML Case</a>
-      </div>
-    </div>
-  </header>
+<h1>Week 1 — Hospitalist Identity & Scope</h1>
 
-  <main class="container">
-    <section id="lesson" class="card">
-      <h2>Lesson (12–15 min)</h2>
+<p class="muted">
+For DABVP-CF and DABVP-Feline • 20-minute micro-module • Alpha Hybrid: MP4 lesson + AML + RMV
+</p>
 
-      <div class="note">
-        <strong>Goal:</strong> define “hospitalist scope” so it’s clearly distinct from ER triage and primary ICU care.
-      </div>
 
-      <h3>1) What is a veterinary hospitalist?</h3>
-      <ul>
-        <li><strong>Owns longitudinal inpatient care</strong> (hours → days), not initial triage or ventilator-level ICU management.</li>
-        <li><strong>Prevents deterioration</strong> through structured monitoring, early recognition, and timely escalation.</li>
-        <li><strong>Optimizes care transitions</strong>: ER → ward, ICU → step-down, ward → discharge.</li>
-      </ul>
+<div class="section">
 
-      <h3>2) Scope boundaries (ABVP-friendly language)</h3>
-      <ul>
-        <li><strong>Included:</strong> inpatient medical management, step-down planning, ward-level oxygen/fluids/electrolytes, antimicrobial stewardship, discharge optimization.</li>
-        <li><strong>Excluded:</strong> primary ER triage responsibility; primary ICU case ownership (ventilator/vasopressors/CRRT management).</li>
-        <li><strong>Escalation is a core skill:</strong> recognizing when ward care is no longer appropriate.</li>
-      </ul>
+<a class="button" href="./proceedings.html">Open Proceedings</a>
 
-      <h3>3) The “time horizon” mental model</h3>
-      <div class="grid2">
-        <div class="mini">
-          <h4>Emergency practice</h4>
-          <p>Minutes → hours. Stabilize, triage, decide disposition.</p>
-        </div>
-        <div class="mini">
-          <h4>Hospitalist practice</h4>
-          <p>Hours → days. Reassess trends, prevent complications, coordinate care.</p>
-        </div>
-      </div>
+<a class="button" href="#" onclick="startAML()">Go to AML Case</a>
 
-      <h3>4) What “mastery” looks like (Week 1)</h3>
-      <ol>
-        <li>Creates a prioritized inpatient problem list.</li>
-        <li>Defines objective deterioration thresholds.</li>
-        <li>Documents a monitoring plan that a team can execute.</li>
-        <li>States when to escalate to ICU or refer to a specialist.</li>
-      </ol>
+</div>
 
-      <h3>5) Common inpatient failure points</h3>
-      <ul>
-        <li>Trend blindness: “stable” label prevents reassessment.</li>
-        <li>Fluid creep → overload (especially CHF/CKD cats).</li>
-        <li>Electrolyte drift (K, Na) not anticipated.</li>
-        <li>Handoff gaps: ER note lacks monitoring plan or escalation triggers.</li>
-      </ul>
 
-      <h3>6) Documentation standard (one-liner)</h3>
-      <p class="quote">
-        “If the overnight team reads only one paragraph, they should know: the top problems, the monitoring plan, and the trigger to escalate.”
-      </p>
+<div class="section">
 
-      <div class="divider"></div>
+<h2>Lesson (12–15 min)</h2>
 
-      <div class="check">
-        <label>
-          <input type="checkbox" id="lessonComplete" />
-          I completed the Week 1 lesson.
-        </label>
-      </div>
-    </section>
+<video controls preload="metadata">
 
-    <section id="aml" class="card">
-      <h2>AML Mini-Case (5–7 min)</h2>
-      <p class="sub">Three decisions + reasoning prompts. Must meet mastery threshold to unlock RMV submission.</p>
+<source src="/videos/hospitalist_week01_intro.mp4" type="video/mp4">
 
-      <div id="amlRoot" class="aml"></div>
+Your browser does not support the video tag.
 
-      <div class="divider"></div>
+</video>
 
-      <div class="rmv-lock">
-        <h3>RMV Submission (Unlocked after mastery)</h3>
-        <p id="rmvStatus" class="sub">Complete the AML case to unlock.</p>
+</div>
 
-        <form id="rmvForm" class="rmv-form hidden">
-          <label>
-            Your email (used to match your RMV account)
-            <input type="email" name="email" required placeholder="you@example.com" />
-          </label>
 
-          <label>
-            Reflection (150–300 words recommended)
-            <textarea name="reflection" required placeholder="What changed your thinking? What deterioration trigger will you use next week?"></textarea>
-          </label>
+<div class="section">
 
-          <input type="hidden" name="module_id" value="hospitalist_week01_mock" />
-          <input type="hidden" name="mastery" id="masteryField" value="false" />
-          <input type="hidden" name="aml_payload" id="payloadField" value="" />
+<h2>Key Concepts</h2>
 
-          <button class="btn" type="submit">Submit RMV</button>
-          <p id="rmvResult" class="sub"></p>
-        </form>
-      </div>
-    </section>
+<h3>1) What is a veterinary hospitalist?</h3>
 
-    <footer class="footer">
-      <p class="sub">
-        Prototype module for testing Render RMV workflow. Not for clinical decision-making; educational simulation only.
-      </p>
-    </footer>
-  </main>
+<p>
+Hospitalists own longitudinal inpatient care over hours to days. Their role is distinct from emergency triage and from intensive care specialists managing ventilators or vasopressors.
+</p>
 
-  <script src="./aml.js"></script>
+<ul>
+
+<li>Own inpatient reassessment and monitoring</li>
+
+<li>Recognize deterioration early</li>
+
+<li>Coordinate ER → ward → discharge transitions</li>
+
+<li>Optimize inpatient medical management</li>
+
+</ul>
+
+
+<h3>2) Scope boundaries</h3>
+
+<p>Included responsibilities:</p>
+
+<ul>
+
+<li>Ward-level oxygen, fluids, electrolytes</li>
+
+<li>Antimicrobial stewardship</li>
+
+<li>Monitoring plans and deterioration thresholds</li>
+
+<li>Step-down planning and discharge readiness</li>
+
+</ul>
+
+<p>Excluded responsibilities:</p>
+
+<ul>
+
+<li>Primary ER triage ownership</li>
+
+<li>Primary ICU ventilator management</li>
+
+</ul>
+
+
+<h3>3) Time-horizon model</h3>
+
+<ul>
+
+<li><strong>Emergency medicine</strong>: minutes → hours</li>
+
+<li><strong>Hospitalist medicine</strong>: hours → days</li>
+
+</ul>
+
+
+<h3>4) Mastery for Week 1</h3>
+
+<ul>
+
+<li>Create a prioritized inpatient problem list</li>
+
+<li>Define deterioration triggers</li>
+
+<li>Design a monitoring plan</li>
+
+<li>Recognize when escalation is required</li>
+
+</ul>
+
+</div>
+
+
+<div class="section">
+
+<h2>AML Mini-Case</h2>
+
+<p>
+Three short clinical decisions with reasoning prompts. Completion unlocks RMV submission.
+</p>
+
+<button onclick="startAML()">Start AML Case</button>
+
+</div>
+
+
+<div class="section">
+
+<h2>RMV Submission</h2>
+
+<p class="muted">
+Unlocked after AML mastery.
+</p>
+
+<label>Your email</label>
+
+<input id="email" placeholder="you@example.com">
+
+<label>Reflection (150–300 words recommended)</label>
+
+<textarea id="reflection"></textarea>
+
+<br><br>
+
+<button onclick="submitRMV()">Submit RMV</button>
+
+</div>
+
+
+<div class="footer">
+
+Prototype module for testing Render RMV workflow.  
+Educational simulation only.
+
+</div>
+
+</div>
+
+
+<script src="./aml.js"></script>
+
+
+<script>
+
+async function submitRMV(){
+
+const email=document.getElementById("email").value
+
+const reflection=document.getElementById("reflection").value
+
+const res=await fetch("/api/rmv/submit",{
+
+method:"POST",
+
+headers:{"Content-Type":"application/json"},
+
+body:JSON.stringify({
+
+module:"hospitalist_week01",
+
+email:email,
+
+reflection:reflection
+
+})
+
+})
+
+const data=await res.json()
+
+if(data.ok){
+
+alert("RMV submitted successfully")
+
+}else{
+
+alert("Submission failed")
+
+}
+
+}
+
+</script>
+
 </body>
+
 </html>
