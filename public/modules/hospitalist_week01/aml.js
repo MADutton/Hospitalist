@@ -1,5 +1,54 @@
 // Minimal AML: 3 decision points + reasoning + mastery scoring.
 // This proves workflow end-to-end. You can later replace feedback with an AI endpoint.
+function $(id) { return document.getElementById(id); }
+
+async function authMe() {
+  const r = await fetch("/auth/me", { credentials: "include" });
+  return r.json();
+}
+
+function setStatus(msg) {
+  const el = $("status");
+  if (el) el.textContent = msg || "";
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const btn = $("start-aml");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    try {
+      setStatus("Starting AML…");
+
+      const me = await authMe();
+      if (!me.email) {
+        setStatus("Not logged in. Go to the site home and do Dev Login (or normal login), then return here.");
+        alert("Please login first (Dev Login or normal login), then retry Start AML Case.");
+        return;
+      }
+
+      const res = await fetch("/cases.json", { credentials: "include" });
+      if (!res.ok) {
+        const txt = await res.text();
+        setStatus(`Failed to load cases: ${res.status} ${txt.slice(0,120)}`);
+        return;
+      }
+
+      const cases = await res.json();
+      setStatus(`Loaded ${cases.length} cases. Rendering…`);
+
+      // TODO: your existing AML rendering goes here
+      const root = $("aml-root");
+      root.style.display = "block";
+      root.innerHTML = `<pre style="white-space:pre-wrap;">${JSON.stringify(cases.slice(0,3), null, 2)}</pre>`;
+      setStatus("AML ready.");
+    } catch (e) {
+      console.error(e);
+      setStatus("AML error: " + (e?.message || String(e)));
+      alert("AML error: " + (e?.message || String(e)));
+    }
+  });
+});
 
 const AML = {
   moduleId: "hospitalist_week01_mock",
