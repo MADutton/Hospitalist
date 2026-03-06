@@ -1,5 +1,6 @@
 // Minimal AML: 3 decision points + reasoning + mastery scoring.
 // This proves workflow end-to-end. You can later replace feedback with an AI endpoint.
+window.AML_INIT_OK = true;
 function $(id) { return document.getElementById(id); }
 const CASES_URL = "/cases.json";
 async function authMe() {
