@@ -1,224 +1,433 @@
-// Minimal AML: 3 decision points + reasoning + mastery scoring.
-// This proves workflow end-to-end. You can later replace feedback with an AI endpoint.
+/*  aml.js — Week 1 Hospitalist AML (MCQ-style prototype)
+    Folder: /public/modules/hospitalist_week01/aml.js
+
+    What it does:
+    - Wires up the "Start AML Case" button on index.html
+    - Fetches cases from /cases.json (served by your Node server)
+    - Filters to module = "hospitalist_week01"
+    - Presents a 3-step MCQ flow (step 1 → step 2 → step 3)
+    - Tracks attempts + mastery events via /track (optional; will fail gracefully if not logged in)
+    - Unlocks RMV UI after mastery
+
+    Expected CSV columns (Google Sheet):
+      id, module, step, question, option_a, option_b, option_c, correct_option, explanation
+*/
+
 window.AML_INIT_OK = true;
-function $(id) { return document.getElementById(id); }
-const CASES_URL = "/cases.json";
-async function authMe() {
-  const r = await fetch("/auth/me", { credentials: "include" });
-  return r.json();
-}
 
-function setStatus(msg) {
-  const el = $("status");
-  if (el) el.textContent = msg || "";
-}
+(() => {
+  const MODULE_ID = "hospitalist_week01";
+  const CASES_URL = "/cases.json";
+  const TRACK_URL = "/track";
+  const AUTH_ME_URL = "/auth/me";
 
-window.addEventListener("DOMContentLoaded", () => {
-  const btn = $("start-aml");
-  if (!btn) return;
+  // Mastery rule for this prototype
+  const REQUIRED_STEPS = 3;
+  const MAX_ATTEMPTS_PER_STEP = 3;
 
-  btn.addEventListener("click", async () => {
-    try {
-      setStatus("Starting AML…");
+  // ---------- DOM helpers ----------
+  const $ = (sel) => document.querySelector(sel);
+  const escapeHtml = (s) =>
+    String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
 
-      const me = await authMe();
-      if (!me.email) {
-        setStatus("Not logged in. Go to the site home and do Dev Login (or normal login), then return here.");
-        alert("Please login first (Dev Login or normal login), then retry Start AML Case.");
-        return;
-      }
+  // These IDs must exist in your module index.html
+  const btnStart = $("#btnStart");
+  const mount = $("#amlMount");
+  const rmvArea = $("#rmvArea");
+  const rmvStatus = $("#rmvStatus");
+  const rmvEmail = $("#rmvEmail");
 
-      const res = await fetch("/cases.json", { credentials: "include" });
-      if (!res.ok) {
-        const txt = await res.text();
-        setStatus(`Failed to load cases: ${res.status} ${txt.slice(0,120)}`);
-        return;
-      }
-
-      const cases = await res.json();
-      setStatus(`Loaded ${cases.length} cases. Rendering…`);
-
-      // TODO: your existing AML rendering goes here
-      const root = $("aml-root");
-      root.style.display = "block";
-      root.innerHTML = `<pre style="white-space:pre-wrap;">${JSON.stringify(cases.slice(0,3), null, 2)}</pre>`;
-      setStatus("AML ready.");
-    } catch (e) {
-      console.error(e);
-      setStatus("AML error: " + (e?.message || String(e)));
-      alert("AML error: " + (e?.message || String(e)));
+  // If your current page doesn't have these, we create minimal UI anyway
+  function ensureMount() {
+    if (!mount) {
+      console.error("AML: missing #amlMount element.");
+      return false;
     }
-  });
-});
-
-const AML = {
-  moduleId: "hospitalist_week01_mock",
-  masteryThreshold: 3, // must hit all 3 key decisions
-  state: {
-    score: 0,
-    decisions: [],
-    reasoning: {},
-    completed: false,
-  },
-  questions: [
-    {
-      id: "q1",
-      stem:
-        "Case: 12y DSH, CKD stage 3, anorexia 48h. Mild dehydration. RR 28. K 3.1. Creatinine 3.2 (baseline 2.8). Day 1 plan: IV fluids + monitoring.\n\nQuestion 1: What are the top 3 active problems (in order)?",
-      options: [
-        { key: "A", text: "CKD progression; dehydration; hypokalemia", correct: true, feedback: "Good: prioritizes immediate physiologic issues while acknowledging CKD context." },
-        { key: "B", text: "CKD progression; anorexia; dehydration", correct: false, feedback: "Close, but dehydration + electrolytes usually outrank anorexia for immediate inpatient risk." },
-        { key: "C", text: "Anorexia; stress; CKD progression", correct: false, feedback: "This misses dehydration/electrolytes as actionable inpatient priorities." },
-      ],
-      reasoningPrompt: "In 2–4 sentences, justify your prioritization (what could harm the patient in the next 12–24 hours?).",
-    },
-    {
-      id: "q2",
-      stem:
-        "Day 2: Fluids ran at ~2x maintenance. RR now 36. Mildly increased effort. Weight +0.4 kg. K now 2.9.\n\nQuestion 2: What is the most concerning interpretation?",
-      options: [
-        { key: "A", text: "Fluid overload developing; adjust fluids + supplement K; reassess respiratory status", correct: true, feedback: "Yes: weight gain + rising RR suggests fluid creep/overload risk—especially in CKD cats." },
-        { key: "B", text: "Stress response; continue same plan and recheck tomorrow", correct: false, feedback: "Risky: this delays action despite objective trend changes." },
-        { key: "C", text: "Hypokalemia alone explains the RR; increase fluid rate", correct: false, feedback: "Increasing fluids here can worsen overload; treat K without worsening respiratory status." },
-      ],
-      reasoningPrompt: "List 2 objective data points that support your interpretation and 1 immediate monitoring step.",
-    },
-    {
-      id: "q3",
-      stem:
-        "Six hours later: RR 42, intermittent open-mouth breathing, SpO2 93%.\n\nQuestion 3: What’s your best next step as the hospitalist (ward leader)?",
-      options: [
-        { key: "A", text: "Trial oxygen + immediate reassessment, contact ICU/criticalist for escalation planning, define transfer threshold", correct: true, feedback: "Correct: manage immediate support while escalating appropriately and explicitly defining triggers." },
-        { key: "B", text: "Wait for radiographs in the morning unless SpO2 drops below 90%", correct: false, feedback: "Too delayed: open-mouth breathing is an escalation signal in cats." },
-        { key: "C", text: "Stop all fluids and discharge if the owner wants to avoid ICU", correct: false, feedback: "Unsafe: clinical compromise needs stabilization and documented goals-of-care discussion." },
-      ],
-      reasoningPrompt: "Write a one-paragraph escalation trigger statement you would put in the chart for the overnight team.",
-    },
-  ],
-};
-
-function el(tag, attrs = {}, children = []) {
-  const node = document.createElement(tag);
-  Object.entries(attrs).forEach(([k, v]) => {
-    if (k === "class") node.className = v;
-    else if (k === "text") node.textContent = v;
-    else node.setAttribute(k, v);
-  });
-  children.forEach((c) => node.appendChild(c));
-  return node;
-}
-
-function render() {
-  const root = document.getElementById("amlRoot");
-  root.innerHTML = "";
-  AML.questions.forEach((q) => root.appendChild(renderQuestion(q)));
-  updateRMVLock();
-}
-
-function renderQuestion(q) {
-  const box = el("div", { class: "q" });
-  box.appendChild(el("p", { text: q.stem }));
-
-  const opts = el("div", { class: "opts" });
-  q.options.forEach((o) => {
-    const btn = el("button", { class: "optbtn", type: "button" });
-    btn.textContent = `${o.key}. ${o.text}`;
-    btn.onclick = () => answer(q.id, o);
-    opts.appendChild(btn);
-  });
-  box.appendChild(opts);
-
-  const fb = el("div", { class: "sub", id: `fb_${q.id}` });
-  fb.style.marginTop = "8px";
-  box.appendChild(fb);
-
-  const rp = el("label", { });
-  rp.innerHTML = `Reasoning (required)<textarea name="r_${q.id}" id="r_${q.id}" placeholder="${q.reasoningPrompt}"></textarea>`;
-  box.appendChild(rp);
-
-  return box;
-}
-
-function answer(qid, option) {
-  const r = document.getElementById(`r_${qid}`).value.trim();
-  if (!r) {
-    alert("Please enter your reasoning before selecting an answer.");
-    return;
+    if (!btnStart) {
+      mount.innerHTML =
+        `<div class="muted"><strong>AML:</strong> Missing <code>#btnStart</code> button in index.html.</div>`;
+      return false;
+    }
+    return true;
   }
 
-  AML.state.decisions = AML.state.decisions.filter(d => d.qid !== qid);
-  AML.state.reasoning[qid] = r;
+  // ---------- State ----------
+  const state = {
+    started: false,
+    cases: [],
+    steps: [], // array of step objects, sorted
+    stepIndex: 0, // 0..REQUIRED_STEPS-1
+    stepAttempts: 0,
+    mastery: false,
+    caseGroupId: null, // the "id" shared across steps
+    email: null,
+    role: null,
+  };
 
-  AML.state.decisions.push({ qid, choice: option.key, correct: option.correct, ts: new Date().toISOString() });
-
-  AML.state.score = AML.state.decisions.reduce((acc, d) => acc + (d.correct ? 1 : 0), 0);
-
-  document.getElementById(`fb_${qid}`).textContent =
-    `${option.correct ? "✅" : "❌"} ${option.feedback} (Score: ${AML.state.score}/${AML.questions.length})`;
-
-  AML.state.completed = (AML.state.decisions.length === AML.questions.length);
-  updateRMVLock();
-}
-
-function updateRMVLock() {
-  const status = document.getElementById("rmvStatus");
-  const form = document.getElementById("rmvForm");
-  const mastery = (AML.state.score >= AML.masteryThreshold) && AML.state.completed;
-
-  if (!AML.state.completed) {
-    status.textContent = "Complete all 3 AML questions (with reasoning) to unlock.";
-    form.classList.add("hidden");
-    return;
-  }
-
-  if (!mastery) {
-    status.textContent = "You completed the AML, but did not meet mastery. Review feedback, revise answers, and resubmit reasoning.";
-    form.classList.add("hidden");
-    return;
-  }
-
-  status.textContent = "Unlocked ✅ Submit your RMV reflection.";
-  document.getElementById("masteryField").value = "true";
-  document.getElementById("payloadField").value = JSON.stringify({
-    module_id: AML.moduleId,
-    score: AML.state.score,
-    decisions: AML.state.decisions,
-    reasoning: AML.state.reasoning,
-    lesson_complete_checked: document.getElementById("lessonComplete")?.checked ?? false
-  });
-
-  form.classList.remove("hidden");
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  render();
-
-  const rmvForm = document.getElementById("rmvForm");
-  rmvForm?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const result = document.getElementById("rmvResult");
-    result.textContent = "Submitting...";
-
-    const data = Object.fromEntries(new FormData(rmvForm).entries());
-
-    // TODO: update this to your real RMV endpoint path
-    const RMV_ENDPOINT = "/api/rmv/submit";
-
+  // ---------- Networking ----------
+  async function fetchJson(url, opts = {}) {
+    const resp = await fetch(url, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      ...opts,
+    });
+    const text = await resp.text();
+    let data = null;
     try {
-      const resp = await fetch(RMV_ENDPOINT, {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      // not JSON
+    }
+    if (!resp.ok) {
+      const msg = data?.error || text || `HTTP ${resp.status}`;
+      throw new Error(`${url} → ${msg}`);
+    }
+    return data;
+  }
+
+  async function loadAuthMe() {
+    try {
+      const me = await fetchJson(AUTH_ME_URL, { method: "GET" });
+      state.email = me?.email || null;
+      state.role = me?.role || null;
+      if (rmvEmail && state.email) rmvEmail.value = state.email;
+    } catch {
+      // ok if not logged in
+      state.email = null;
+      state.role = null;
+    }
+  }
+
+  async function loadCases() {
+    const all = await fetchJson(CASES_URL, { method: "GET" });
+    if (!Array.isArray(all)) throw new Error("cases.json did not return an array");
+    state.cases = all;
+    return all;
+  }
+
+  // Track events (optional). If unauthorized, we ignore.
+  async function track(event_type, details = {}) {
+    try {
+      await fetchJson(TRACK_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          module: MODULE_ID,
+          case_id: state.caseGroupId || null,
+          event_type,
+          details,
+        }),
       });
+    } catch (e) {
+      // Most common failure is 401 when not logged in; ignore for prototype.
+      // Uncomment next line if you want to see it:
+      // console.warn("Track skipped:", e.message);
+    }
+  }
 
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(t || `HTTP ${resp.status}`);
+  // ---------- Case selection ----------
+  function normalizeRow(row) {
+    const correct = (row.correct_option || row.correct || "").toString().trim().toUpperCase();
+    return {
+      id: (row.id || "").toString().trim(),
+      module: (row.module || "").toString().trim(),
+      step: Number(row.step || 0),
+      question: (row.question || "").toString().trim(),
+      option_a: (row.option_a || "").toString().trim(),
+      option_b: (row.option_b || "").toString().trim(),
+      option_c: (row.option_c || "").toString().trim(),
+      correct_option: correct, // "A" | "B" | "C"
+      explanation: (row.explanation || "").toString().trim(),
+    };
+  }
+
+  function groupByBaseId(rows) {
+    // Supports ids like:
+    //   hospitalist_week01_case01_step1
+    // or:
+    //   hospitalist_week01_case01 (with step column differentiating)
+    // We treat the full `id` as group key unless it ends with _stepN.
+    const groups = new Map();
+
+    for (const r of rows) {
+      const id = r.id;
+      if (!id) continue;
+
+      let key = id;
+      const m = id.match(/^(.*)_step(\d+)$/i);
+      if (m) key = m[1];
+
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    return groups;
+  }
+
+  function pickRandomCaseGroup(allCases) {
+    const moduleRows = allCases
+      .map(normalizeRow)
+      .filter((r) => r.module.toLowerCase() === MODULE_ID.toLowerCase())
+      .filter((r) => r.step >= 1); // must have step
+
+    if (!moduleRows.length) return null;
+
+    const groups = groupByBaseId(moduleRows);
+    const groupKeys = Array.from(groups.keys());
+
+    // Prefer groups that have 3 steps
+    const complete = groupKeys.filter((k) => groups.get(k).some((x) => x.step === 1) &&
+                                            groups.get(k).some((x) => x.step === 2) &&
+                                            groups.get(k).some((x) => x.step === 3));
+    const candidates = complete.length ? complete : groupKeys;
+
+    const pickKey = candidates[Math.floor(Math.random() * candidates.length)];
+    const steps = groups.get(pickKey).slice().sort((a, b) => a.step - b.step);
+
+    // If steps are missing, we still run with what exists, but mastery needs 3 correct
+    return { caseGroupId: pickKey, steps };
+  }
+
+  // ---------- Rendering ----------
+  function renderIntro(msg = "") {
+    mount.innerHTML = `
+      <div class="aml">
+        <p class="muted">
+          Click <strong>Start AML Case</strong> to load a 3-step inpatient reasoning mini-case
+          from <code>${escapeHtml(CASES_URL)}</code>.
+        </p>
+        ${msg ? `<p class="muted">${escapeHtml(msg)}</p>` : ""}
+      </div>
+    `;
+  }
+
+  function renderStep() {
+    const step = state.steps[state.stepIndex];
+    if (!step) {
+      mount.innerHTML = `<div class="muted"><strong>No step data found.</strong></div>`;
+      return;
+    }
+
+    const stepNum = step.step || (state.stepIndex + 1);
+    const attemptsLeft = Math.max(0, MAX_ATTEMPTS_PER_STEP - state.stepAttempts);
+
+    mount.innerHTML = `
+      <div class="aml card">
+        <div class="row">
+          <div>
+            <div class="kicker">AML Case</div>
+            <h3>${escapeHtml(state.caseGroupId)} — Step ${escapeHtml(stepNum)}</h3>
+          </div>
+          <div class="right muted small">
+            Attempts left this step: <strong>${attemptsLeft}</strong>
+          </div>
+        </div>
+
+        <div class="q">
+          <p><strong>Question:</strong> ${escapeHtml(step.question)}</p>
+        </div>
+
+        <div class="opts">
+          <label class="opt"><input type="radio" name="ans" value="A"> <span><strong>A.</strong> ${escapeHtml(step.option_a)}</span></label>
+          <label class="opt"><input type="radio" name="ans" value="B"> <span><strong>B.</strong> ${escapeHtml(step.option_b)}</span></label>
+          <label class="opt"><input type="radio" name="ans" value="C"> <span><strong>C.</strong> ${escapeHtml(step.option_c)}</span></label>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="btnSubmit">Submit</button>
+          <button class="btn" id="btnReset">Restart AML</button>
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+      </div>
+    `;
+
+    $("#btnSubmit")?.addEventListener("click", onSubmit);
+    $("#btnReset")?.addEventListener("click", resetAML);
+  }
+
+  function renderMastery() {
+    mount.innerHTML = `
+      <div class="aml card">
+        <div class="kicker">Mastery Achieved</div>
+        <h3>✅ Week 1 AML mastery complete</h3>
+        <p class="muted">
+          You completed the 3-step reasoning case. RMV submission is now unlocked.
+        </p>
+        <div class="actions">
+          <button class="btn" id="btnRestart">Do Another AML Case</button>
+        </div>
+      </div>
+    `;
+    $("#btnRestart")?.addEventListener("click", startAML);
+    unlockRMV();
+  }
+
+  function setFeedback(html) {
+    const el = $("#feedback");
+    if (el) el.innerHTML = html;
+  }
+
+  function unlockRMV() {
+    if (!rmvArea) return;
+    rmvArea.style.opacity = "1";
+    rmvArea.style.pointerEvents = "auto";
+    if (rmvStatus) rmvStatus.textContent = "Unlocked. Submit your reflection when ready.";
+  }
+
+  function lockRMV() {
+    if (!rmvArea) return;
+    rmvArea.style.opacity = "0.6";
+    rmvArea.style.pointerEvents = "none";
+    if (rmvStatus) rmvStatus.textContent = "Complete AML mastery to unlock RMV submission.";
+  }
+
+  // ---------- Logic ----------
+  async function startAML() {
+    if (!ensureMount()) return;
+
+    state.started = true;
+    state.mastery = false;
+    state.stepIndex = 0;
+    state.stepAttempts = 0;
+
+    mount.innerHTML = `<div class="muted">Loading cases…</div>`;
+
+    await loadAuthMe(); // best effort
+
+    const all = await loadCases();
+    const picked = pickRandomCaseGroup(all);
+
+    if (!picked) {
+      mount.innerHTML = `
+        <div class="muted">
+          <strong>No cases found</strong> for module <code>${escapeHtml(MODULE_ID)}</code>.
+          Check your Google Sheet CSV: module column must equal <code>${escapeHtml(MODULE_ID)}</code>.
+        </div>
+      `;
+      return;
+    }
+
+    state.caseGroupId = picked.caseGroupId;
+    state.steps = picked.steps;
+
+    await track("aml_started", { case_group: state.caseGroupId, steps: state.steps.map((s) => s.step) });
+
+    lockRMV();
+    renderStep();
+  }
+
+  function resetAML() {
+    state.started = false;
+    state.mastery = false;
+    state.steps = [];
+    state.stepIndex = 0;
+    state.stepAttempts = 0;
+    state.caseGroupId = null;
+    lockRMV();
+    renderIntro("AML reset. Click Start AML Case again.");
+  }
+
+  async function onSubmit() {
+    const step = state.steps[state.stepIndex];
+    const picked = document.querySelector('input[name="ans"]:checked')?.value || "";
+    if (!picked) {
+      setFeedback(`<div class="warn">Please choose A, B, or C.</div>`);
+      return;
+    }
+
+    const correct = (step.correct_option || "").trim().toUpperCase();
+    const isCorrect = picked === correct;
+
+    state.stepAttempts += 1;
+
+    await track("attempt_submitted", {
+      step: step.step,
+      answer: picked,
+      correct,
+      attempt_number: state.stepAttempts,
+      ok: isCorrect,
+    });
+
+    if (isCorrect) {
+      setFeedback(`
+        <div class="ok">
+          <strong>Correct.</strong> ${escapeHtml(step.explanation || "Nice work.")}
+        </div>
+      `);
+
+      // Move to next step
+      state.stepIndex += 1;
+      state.stepAttempts = 0;
+
+      // If we don't have enough steps in this group, fail gracefully
+      if (state.stepIndex >= REQUIRED_STEPS || state.stepIndex >= state.steps.length) {
+        // Mastery requires 3 steps completed correctly; if less than 3 steps exist, we still mark "complete"
+        // for prototype, but you can tighten this later.
+        state.mastery = true;
+        await track("mastery_pass", { case_group: state.caseGroupId });
+        renderMastery();
+        return;
       }
 
-      result.textContent = "Submitted ✅ (Check your RMV dashboard/logs.)";
-    } catch (err) {
-      result.textContent = `Submission failed: ${err.message}`;
+      // Render next step after a brief delay
+      setTimeout(renderStep, 350);
+      return;
     }
-  });
-});
+
+    // Incorrect
+    const attemptsLeft = MAX_ATTEMPTS_PER_STEP - state.stepAttempts;
+
+    if (attemptsLeft > 0) {
+      setFeedback(`
+        <div class="warn">
+          <strong>Not quite.</strong> Try again.
+          <div class="muted small">Hint: focus on inpatient trend-risk and escalation thresholds.</div>
+        </div>
+      `);
+      return;
+    }
+
+    // Out of attempts: show answer and reset to this step
+    setFeedback(`
+      <div class="bad">
+        <strong>Step failed.</strong> The correct answer was <strong>${escapeHtml(correct)}</strong>.
+        <div class="muted">${escapeHtml(step.explanation || "")}</div>
+        <div class="muted small">Restarting this step. You can also restart the whole AML.</div>
+      </div>
+    `);
+
+    await track("step_failed", { step: step.step, correct });
+
+    // Reset attempts for this step so they can re-try
+    state.stepAttempts = 0;
+  }
+
+  // ---------- Wire up Start button ----------
+  function init() {
+    if (!ensureMount()) return;
+
+    // If RMV area exists, lock it until mastery
+    lockRMV();
+
+    // Initial UI
+    renderIntro();
+
+    btnStart.addEventListener("click", () => {
+      startAML().catch((e) => {
+        console.error("AML start error:", e);
+        mount.innerHTML = `<div class="bad"><strong>Error:</strong> ${escapeHtml(e.message)}</div>`;
+      });
+    });
+  }
+
+  // Start
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
