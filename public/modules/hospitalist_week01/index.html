@@ -2,49 +2,87 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Week 1 — Hospitalist Identity & Scope</title>
+
+  <!-- IMPORTANT: relative path from this folder -->
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
-  <main class="container">
-    <h1>Week 1 — Hospitalist Identity & Scope</h1>
+  <div class="wrap">
+    <header class="card">
+      <h1>Week 1 — Hospitalist Identity &amp; Scope (Prototype)</h1>
+      <p class="muted">DABVP-CF and DABVP-Feline • Alpha Hybrid: short lesson + AML + RMV</p>
+    </header>
 
-    <p class="muted">
-      For DABVP-CF and DABVP-Feline • 20-minute micro-module • Alpha Hybrid: MP4 lesson + AML + RMV
-    </p>
+    <section class="card">
+      <h2>Lesson</h2>
 
-    <div class="row">
-      <a class="button" href="./proceedings.html" target="_blank" rel="noopener">Open Proceedings</a>
-      <button class="button" id="start-aml" type="button">Start AML Case</button>
-    </div>
+      <div class="video">
+        <!-- Put your MP4 in /public/videos/ -->
+        <video controls preload="metadata" width="100%">
+          <source src="/videos/hospitalist_week01_intro.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
 
-    <div id="status" class="status muted"></div>
+      <div class="actions">
+        <a class="btn" href="./proceedings.html" target="_blank" rel="noopener">Open Proceedings</a>
+        <button class="btn primary" id="btnStart">Start AML Case</button>
+      </div>
 
-    <section id="aml-root" class="card" style="display:none; margin-top:16px;"></section>
+      <p class="muted small">
+        If “Start AML Case” does nothing, open Developer Tools → Console. The most common cause is a missing JS file.
+      </p>
+    </section>
 
-    <hr style="margin:24px 0;" />
+    <section class="card" id="amlArea">
+      <h2>AML Case</h2>
+      <div id="amlMount" class="muted">
+        Click <strong>Start AML Case</strong> to load a case from <code>/cases.json</code>.
+      </div>
+    </section>
 
-    <h2>RMV Submission</h2>
-    <p class="muted">Unlocked after AML mastery (prototype behavior may vary).</p>
+    <section class="card" id="rmvArea">
+      <h2>RMV Submission</h2>
+      <p class="muted">This will require login (Dev Login or normal login flow).</p>
 
-    <form id="rmv-form" class="card">
-      <label>Your email</label>
-      <input id="rmv-email" type="email" placeholder="you@example.com" />
+      <form id="rmvForm">
+        <label>
+          Your email
+          <input id="rmvEmail" type="email" placeholder="you@example.com" required />
+        </label>
 
-      <label style="margin-top:12px;">Reflection (150–300 words recommended)</label>
-      <textarea id="rmv-reflection" rows="6" placeholder="What changed your thinking? What deterioration trigger will you use next week?"></textarea>
+        <label>
+          Reflection (150–300 words recommended)
+          <textarea id="rmvReflection" rows="7" placeholder="What changed your thinking? What trigger will you use?"></textarea>
+        </label>
 
-      <button class="button" id="rmv-submit" type="submit" style="margin-top:12px;">Submit RMV</button>
-      <div id="rmv-status" class="status muted" style="margin-top:10px;"></div>
-    </form>
+        <button class="btn" type="submit">Submit RMV</button>
+        <div id="rmvStatus" class="muted small"></div>
+      </form>
+    </section>
 
-    <p class="muted" style="margin-top:16px;">
-      Prototype module for testing Render RMV workflow. Educational simulation only.
-    </p>
-  </main>
+    <footer class="muted small">
+      Prototype module for Render workflow testing. Educational simulation only.
+    </footer>
+  </div>
 
-  <!-- Load script at the END so DOM exists -->
+  <!-- IMPORTANT: load aml.js AFTER HTML so button exists -->
   <script src="./aml.js"></script>
+
+  <!-- Tiny safety net: show message if aml.js failed to load -->
+  <script>
+    window.addEventListener("load", () => {
+      const mount = document.getElementById("amlMount");
+      const btn = document.getElementById("btnStart");
+      if (!window.AML_INIT_OK) {
+        mount.innerHTML =
+          "<strong>AML script not loaded.</strong> Check that <code>./aml.js</code> exists in this folder and that the page is at <code>/modules/hospitalist_week01/</code>.";
+        btn.disabled = true;
+      }
+    });
+  </script>
 </body>
 </html>
